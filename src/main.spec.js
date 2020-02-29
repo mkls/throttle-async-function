@@ -43,7 +43,7 @@ describe('throttleAsyncFunction', () => {
     expect(asyncFunction).toHaveBeenCalledTimes(2);
   });
 
-  it('it should execute wrapped function again after refresh period', async () => {
+  it('should execute wrapped function again after refresh period', async () => {
     const cacheRefreshPeriodMs = 100;
     const asyncFunction = jest.fn().mockResolvedValue(3);
     const throttled = throttleAsyncFunction({ asyncFunction, cacheRefreshPeriodMs });
@@ -56,7 +56,7 @@ describe('throttleAsyncFunction', () => {
     expect(asyncFunction).toHaveBeenCalledTimes(2);
   });
 
-  it('it should not call wrapped function twice for new call while previous call is still in progress', async () => {
+  it('should not call wrapped function twice for new call while previous call is still in progress', async () => {
     let resolvePromise;
     const asyncFunction = jest.fn()
       .mockImplementation(() => new Promise(resolve => (resolvePromise = resolve)));
@@ -72,7 +72,7 @@ describe('throttleAsyncFunction', () => {
     expect([result1, result2]).toEqual([12, 12]);
   });
 
-  it('it should return previous result from cache if a new refresh is still in progress', async () => {
+  it('should return previous result from cache if a new refresh is still in progress', async () => {
     const cacheRefreshPeriodMs = 100;
     let resolveSecondCall;
     const asyncFunction = jest.fn()
@@ -95,7 +95,7 @@ describe('throttleAsyncFunction', () => {
     expect(thirdCallResult).toEqual('secondResult');
   });
 
-  it('it should throw if wrapped unction fails for the first time for given args', async () => {
+  it('should throw if wrapped unction fails for the first time for given args', async () => {
     const asyncFunction = () => { throw new Error('error from asyncFunction'); };
     const throttled = throttleAsyncFunction({ asyncFunction });
 
@@ -128,5 +128,63 @@ describe('throttleAsyncFunction', () => {
     await delay(cacheExpiryMs + 10);
 
     await expect(throttled.call()).rejects.toThrowError('pesky persistent error');
+  });
+
+  describe('retryCount option', () => {
+    it('should retry if wrapped function fails for the first call for given args', async () => {
+      const asyncFunction = jest.fn()
+        .mockRejectedValueOnce(new Error('transient error'))
+        .mockResolvedValueOnce(14);
+      const throttled = throttleAsyncFunction({ asyncFunction, retryCount: 1 });
+
+      const result = await throttled.call();
+
+      expect(result).toEqual(14);
+    });
+
+    it('should not retry failed wrapped function if there is valid cached result', async () => {
+      const cacheRefreshPeriodMs = 100;
+      const asyncFunction = jest.fn()
+        .mockResolvedValueOnce(14)
+        .mockRejectedValueOnce(new Error('transient error'));
+      const throttled = throttleAsyncFunction({ asyncFunction, cacheRefreshPeriodMs, retryCount: 1 });
+
+      await throttled.call();
+      await delay(cacheRefreshPeriodMs + 10);
+      const result = await throttled.call();
+
+      expect(result).toEqual(14);
+      expect(asyncFunction).toHaveBeenCalledTimes(2);
+    });
+
+    it('should retry if wrapped function fails while cache is expired', async () => {
+      const cacheRefreshPeriodMs = 50;
+      const cacheExpiryMs = 100;
+      const asyncFunction = jest.fn()
+        .mockResolvedValueOnce(14)
+        .mockRejectedValueOnce(new Error('pesky persistent error'))
+        .mockResolvedValueOnce(16);
+      const throttled = throttleAsyncFunction({
+        asyncFunction,
+        cacheRefreshPeriodMs,
+        cacheExpiryMs,
+        retryCount: 1
+      });
+
+      await throttled.call();
+      await delay(cacheExpiryMs + 10);
+      const result = await throttled.call();
+
+      expect(result).toEqual(16);
+      expect(asyncFunction).toHaveBeenCalledTimes(3);
+    });
+
+    it('should throw error if retry count is exhausted and request still fails', async () => {
+      const asyncFunction = jest.fn().mockRejectedValue(new Error('pesky persistent error'));
+      const throttled = throttleAsyncFunction({ asyncFunction, retryCount: 3 });
+
+      await expect(throttled.call()).rejects.toThrowError('pesky persistent error');
+      expect(asyncFunction).toHaveBeenCalledTimes(4);
+    });
   });
 });

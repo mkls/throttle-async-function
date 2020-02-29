@@ -3,7 +3,8 @@
 module.exports = ({
   asyncFunction,
   cacheRefreshPeriodMs = 60 * 1000,
-  cacheExpiryMs = 10 * 60 * 1000
+  cacheExpiryMs = 10 * 60 * 1000,
+  retryCount = 0
 }) => {
   let promiseCache = {};
   let resultCache = {};
@@ -19,7 +20,7 @@ module.exports = ({
     if (cachedPromise && !shouldRefresh(cachedPromise.timestamp)) {
       return;
     }
-    const promise = asyncFunction(...args)
+    const promise = retryFunction(async () => asyncFunction(...args), retryCount)
       .then(result => {
         resultCache[cacheKey] = { result, timestamp: Date.now() };
         return result;
@@ -45,4 +46,16 @@ module.exports = ({
       resultCache = {};
     }
   };
+};
+
+const retryFunction = async (operation, retryCount) => {
+  try {
+    return await operation();
+  } catch (error) {
+    if (retryCount > 0) {
+      return retryFunction(operation, retryCount - 1);
+    } else {
+      throw error;
+    }
+  }
 };
