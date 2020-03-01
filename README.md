@@ -41,12 +41,13 @@ await throttled(3);   // calls wrapped function again, no cache for this argumen
 
 - `cacheMaxAge`: in milliseconds, default is 300000 millisecond (5 minutes)
 
-  Cached result will expire when they are oldar than this value. Should be a larger value than `cacheRefreshPeriod`.
+  Cached result will expire when they are oldar than this value.
+  Should be a larger value than `cacheRefreshPeriod`.
 
 With the default values of `cacheRefreshPeriod` and `cacheMaxAge` (1 and 5 minutes)
 it will try to refresh the cache every 1 minute for given arguments, but in case
-the refresh fails (after retries), it will serve the result of the latest
-succesfull refresh until it is less than 5 minutes old.
+the refresh fails, it will serve the result of the latest succesfull refresh until it is
+no more than 5 minutes old.
 
 - `maxCachedItems`: default is `Infinity` (no limit)
 
@@ -57,7 +58,8 @@ succesfull refresh until it is less than 5 minutes old.
 
   When the wrapped function returns with a rejected promise or throws an error, it will
   be retried this many times before propagating the error to the caller.
-
+  Unless, there is a valid value for this value in cache, in which case it does not
+  bother with retries.
 
 ### Resetting cache
 
@@ -74,3 +76,42 @@ await throttled(12);
 throttled.clearCache();
 await throttled(12);    // calls wrapped function again
 ```
+
+### Motivation
+
+Compared with similar packages I believe this packege let's you set up a more
+error resistent in memory caching.
+
+The initial version of this was package was lifted out from a system where we
+were on-call 24/7, and it was rather annoying to wake up for a single failed request.
+This was an attempt to use caching and retries to ensure our systems works
+when there are transient errors in other services we are calling.
+
+I would suggest the following setup for similar use-cases:
+
+```js
+const throttledFetchEventUsage = throttleAsyncFunction(
+  async customerId => {
+    try {
+      return await fetchEventUsage(customerId);
+    } catch (error) {
+      logger.warn('event-usage-fetch-faield');
+      throw error;
+    }
+  },
+  { retryCount: 2 }
+);
+
+try {
+  const usage = await throttledFetchEventUsage(customerId);
+} catch (error) {
+  logger.error('event-usage-fetch-failed-after-retries');
+}
+```
+
+The first `warning` log logs every failed request, even if the failure was mitigated by
+retries or there was cache available. This let's you look at the general health of
+this operation, but you do not need to alert for this log.
+
+The second `error` log logs when the mitigation strategies failed.
+You can connect a high prio alert for this log.
