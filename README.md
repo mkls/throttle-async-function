@@ -22,6 +22,7 @@ const throttled = throttleAsyncFunction(
   {
     cacheRefreshPeriod: 10 * 1000,
     cacheMaxAge: 60 * 1000,
+    maxCachedItems: 1000
     retryCount: 2
   }
 );
@@ -44,10 +45,15 @@ await throttled(3);   // calls wrapped function again, no cache for this argumen
 
 With the default values of `cacheRefreshPeriod` and `cacheMaxAge` (1 and 5 minutes)
 it will try to refresh the cache every 1 minute for given arguments, but in case
-this refresh fails (after retries), it will serve the result of the latest
+the refresh fails (after retries), it will serve the result of the latest
 succesfull refresh until it is less than 5 minutes old.
 
-- `retryCount`: (default 0)
+- `maxCachedItems`: default is `Infinity` (no limit)
+
+  The maximum number of results to store before evicting the least recently used one.
+  Uses [lru-cache](https://www.npmjs.com/package/lru-cache) behind the scene.
+
+- `retryCount`: default is 0 (no retry)
 
   When the wrapped function returns with a rejected promise or throws an error, it will
   be retried this many times before propagating the error to the caller.

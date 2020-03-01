@@ -1,56 +1,58 @@
 'use strict';
 
+const LRU = require('lru-cache');
+
 module.exports = (
   asyncFunction,
-  { cacheRefreshPeriodMs = 60 * 1000, cacheExpiryMs = 5 * 60 * 1000, retryCount = 0 } = {}
+  {
+    cacheRefreshPeriod = 60 * 1000,
+    cacheExpiry = 5 * 60 * 1000,
+    maxCachedItems = Infinity,
+    retryCount = 0
+  } = {}
 ) => {
-  let promiseCache = {};
-  let resultCache = {};
+  const promiseCache = new LRU({ max: maxCachedItems, maxAge: cacheRefreshPeriod });
+  const resultCache = new LRU({ max: maxCachedItems, maxAge: cacheExpiry });
 
-  const shouldRefresh = timestamp => Date.now() - timestamp > cacheRefreshPeriodMs;
-  const isExpired = timestamp => Date.now() - timestamp > cacheExpiryMs;
-  const hasValidCachedResultFor = cacheKey => {
-    const cachedResult = resultCache[cacheKey];
-    return cachedResult && !isExpired(cachedResult.timestamp);
-  };
-  const refreshPromiseIfExpired = (cacheKey, args) => {
-    const cachedPromise = promiseCache[cacheKey];
-    if (cachedPromise && !shouldRefresh(cachedPromise.timestamp)) {
-      return;
-    }
-    const promise = retryFunction(async () => asyncFunction(...args), retryCount)
+  const setPromiseCacheForArgs = (cacheKey, args) => {
+    const promise = retry(async () => asyncFunction(...args), retryCount)
       .then(result => {
-        resultCache[cacheKey] = { result, timestamp: Date.now() };
+        resultCache.set(cacheKey, result);
         return result;
       })
       .catch(error => {
-        if (hasValidCachedResultFor(cacheKey)) return resultCache[cacheKey].result;
+        if (resultCache.has(cacheKey)) {
+          return resultCache.get(cacheKey);
+        }
         throw error;
       });
-    promiseCache[cacheKey] = { promise, timestamp: Date.now() };
+    promiseCache.set(cacheKey, promise);
   };
 
   const throttled = async (...args) => {
     const cacheKey = JSON.stringify(args);
 
-    refreshPromiseIfExpired(cacheKey, args);
-
-    if (hasValidCachedResultFor(cacheKey)) return resultCache[cacheKey].result;
-    return promiseCache[cacheKey].promise;
+    if (!promiseCache.has(cacheKey)) {
+      setPromiseCacheForArgs(cacheKey, args);
+    }
+    if (resultCache.has(cacheKey)) {
+      return resultCache.get(cacheKey);
+    }
+    return promiseCache.get(cacheKey);
   };
   throttled.clearCache = () => {
-    promiseCache = {};
-    resultCache = {};
+    promiseCache.reset();
+    resultCache.reset();
   };
   return throttled;
 };
 
-const retryFunction = async (operation, retryCount) => {
+const retry = async (operation, retryCount) => {
   try {
     return await operation();
   } catch (error) {
     if (retryCount > 0) {
-      return retryFunction(operation, retryCount - 1);
+      return retry(operation, retryCount - 1);
     } else {
       throw error;
     }
