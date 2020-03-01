@@ -14,26 +14,28 @@ module.exports = (
   const promiseCache = new LRU({ max: maxCachedItems, maxAge: cacheRefreshPeriod });
   const resultCache = new LRU({ max: maxCachedItems, maxAge: cacheExpiry });
 
-  const setPromiseCacheForArgs = (cacheKey, args) => {
-    const promise = retry(async () => asyncFunction(...args), retryCount)
-      .then(result => {
-        resultCache.set(cacheKey, result);
-        return result;
-      })
-      .catch(error => {
-        if (resultCache.has(cacheKey)) {
-          return resultCache.get(cacheKey);
-        }
+  const callWithRetry = async (cacheKey, args, retryCount) => {
+    try {
+      const result = await asyncFunction(...args);
+      resultCache.set(cacheKey, result);
+      return result;
+    } catch (error) {
+      if (resultCache.has(cacheKey)) {
+        return resultCache.get(cacheKey);
+      }
+      if (retryCount > 0) {
+        return callWithRetry(cacheKey, args, retryCount - 1);
+      } else {
         throw error;
-      });
-    promiseCache.set(cacheKey, promise);
+      }
+    }
   };
 
   const throttled = async (...args) => {
     const cacheKey = JSON.stringify(args);
 
     if (!promiseCache.has(cacheKey)) {
-      setPromiseCacheForArgs(cacheKey, args);
+      promiseCache.set(cacheKey, callWithRetry(cacheKey, args, retryCount));
     }
     if (resultCache.has(cacheKey)) {
       return resultCache.get(cacheKey);
@@ -45,16 +47,4 @@ module.exports = (
     resultCache.reset();
   };
   return throttled;
-};
-
-const retry = async (operation, retryCount) => {
-  try {
-    return await operation();
-  } catch (error) {
-    if (retryCount > 0) {
-      return retry(operation, retryCount - 1);
-    } else {
-      throw error;
-    }
-  }
 };

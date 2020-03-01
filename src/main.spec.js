@@ -164,8 +164,7 @@ describe('throttleAsyncFunction', () => {
       expect(result).toEqual(14);
     });
 
-    // TODO: corrent behaviur does not match this expectation, not sure it should
-    it.skip('should not retry failed wrapped function if there is valid cached result', async () => {
+    it('should not retry failed wrapped function if there is valid cached result', async () => {
       const cacheRefreshPeriod = 100;
       const asyncFunction = jest
         .fn()
@@ -183,6 +182,9 @@ describe('throttleAsyncFunction', () => {
 
       expect(result).toEqual(14);
       expect(asyncFunction).toHaveBeenCalledTimes(2);
+
+      const resultAfterFailedRefresh = await throttled();
+      expect(resultAfterFailedRefresh).toEqual(14);
     });
 
     it('should retry if wrapped function fails while cache is expired', async () => {
