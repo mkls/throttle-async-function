@@ -5,28 +5,28 @@ const delay = require('delay');
 
 describe('throttleAsyncFunction', () => {
   it('should return the result of the function for the first execution', async () => {
-    const throttled = throttleAsyncFunction({ asyncFunction: async () => 2 });
+    const throttled = throttleAsyncFunction(async () => 2);
 
-    const result = await throttled.call();
+    const result = await throttled();
 
     expect(result).toEqual(2);
   });
 
   it('should pass parameters to the wrapped function', async () => {
     const asyncFunction = jest.fn().mockResolvedValue();
-    const throttled = throttleAsyncFunction({ asyncFunction });
+    const throttled = throttleAsyncFunction(asyncFunction);
 
-    await throttled.call(8, 'kismacska');
+    await throttled(8, 'kismacska');
 
     expect(asyncFunction).toHaveBeenCalledWith(8, 'kismacska');
   });
 
   it('should only call wrapped function once if called multiple times within refresh period', async () => {
     const asyncFunction = jest.fn().mockResolvedValue(2);
-    const throttled = throttleAsyncFunction({ asyncFunction });
+    const throttled = throttleAsyncFunction(asyncFunction);
 
-    const result1 = await throttled.call();
-    const result2 = await throttled.call();
+    const result1 = await throttled();
+    const result2 = await throttled();
 
     expect([result1, result2]).toEqual([2, 2]);
     expect(asyncFunction).toHaveBeenCalledTimes(1);
@@ -34,10 +34,10 @@ describe('throttleAsyncFunction', () => {
 
   it('should call wrapped function multiple times for different arguments', async () => {
     const asyncFunction = jest.fn().mockImplementation(async arg => (arg > 2 ? true : false));
-    const throttled = throttleAsyncFunction({ asyncFunction });
+    const throttled = throttleAsyncFunction(asyncFunction);
 
-    const result1 = await throttled.call(1);
-    const result2 = await throttled.call(4);
+    const result1 = await throttled(1);
+    const result2 = await throttled(4);
 
     expect([result1, result2]).toEqual([false, true]);
     expect(asyncFunction).toHaveBeenCalledTimes(2);
@@ -46,24 +46,25 @@ describe('throttleAsyncFunction', () => {
   it('should execute wrapped function again after refresh period', async () => {
     const cacheRefreshPeriodMs = 100;
     const asyncFunction = jest.fn().mockResolvedValue(3);
-    const throttled = throttleAsyncFunction({ asyncFunction, cacheRefreshPeriodMs });
+    const throttled = throttleAsyncFunction(asyncFunction, { cacheRefreshPeriodMs });
 
-    await throttled.call();
-    await throttled.call()
+    await throttled();
+    await throttled();
     await delay(cacheRefreshPeriodMs + 10);
-    await throttled.call();
+    await throttled();
 
     expect(asyncFunction).toHaveBeenCalledTimes(2);
   });
 
   it('should not call wrapped function twice for new call while previous call is still in progress', async () => {
     let resolvePromise;
-    const asyncFunction = jest.fn()
+    const asyncFunction = jest
+      .fn()
       .mockImplementation(() => new Promise(resolve => (resolvePromise = resolve)));
-    const throttled = throttleAsyncFunction({ asyncFunction });
+    const throttled = throttleAsyncFunction(asyncFunction);
 
-    const promise1 = throttled.call();
-    const promise2 = throttled.call();
+    const promise1 = throttled();
+    const promise2 = throttled();
 
     expect(asyncFunction).toHaveBeenCalledTimes(1);
 
@@ -75,43 +76,47 @@ describe('throttleAsyncFunction', () => {
   it('should return previous result from cache if a new refresh is still in progress', async () => {
     const cacheRefreshPeriodMs = 100;
     let resolveSecondCall;
-    const asyncFunction = jest.fn()
+    const asyncFunction = jest
+      .fn()
       .mockImplementationOnce(async () => 'firstResult')
       .mockImplementationOnce(async () => new Promise(resolve => (resolveSecondCall = resolve)));
-    const throttled = throttleAsyncFunction({ asyncFunction, cacheRefreshPeriodMs });
+    const throttled = throttleAsyncFunction(asyncFunction, { cacheRefreshPeriodMs });
 
-    const firstResultFillCache = await throttled.call();
+    const firstResultFillCache = await throttled();
     expect(firstResultFillCache).toEqual('firstResult');
 
     await delay(cacheRefreshPeriodMs + 10);
 
-    const secondCallResult = await throttled.call();
+    const secondCallResult = await throttled();
     expect(secondCallResult).toEqual('firstResult');
 
     resolveSecondCall('secondResult');
     await delay(0);
 
-    const thirdCallResult = await throttled.call();
+    const thirdCallResult = await throttled();
     expect(thirdCallResult).toEqual('secondResult');
   });
 
   it('should throw if wrapped unction fails for the first time for given args', async () => {
-    const asyncFunction = () => { throw new Error('error from asyncFunction'); };
-    const throttled = throttleAsyncFunction({ asyncFunction });
+    const asyncFunction = () => {
+      throw new Error('error from asyncFunction');
+    };
+    const throttled = throttleAsyncFunction(asyncFunction);
 
-    await expect(throttled.call()).rejects.toThrowError('error from asyncFunction');
+    await expect(throttled()).rejects.toThrowError('error from asyncFunction');
   });
 
   it('should return latest non expired result when wrapped function failed', async () => {
     const cacheRefreshPeriodMs = 100;
-    const asyncFunction = jest.fn()
+    const asyncFunction = jest
+      .fn()
       .mockResolvedValueOnce(14)
       .mockRejectedValueOnce(new Error('things are bad, but we have cache'));
-    const throttled = throttleAsyncFunction({ asyncFunction, cacheRefreshPeriodMs });
+    const throttled = throttleAsyncFunction(asyncFunction, { cacheRefreshPeriodMs });
 
-    await throttled.call();
+    await throttled();
     await delay(cacheRefreshPeriodMs + 10);
-    const secondResult = await throttled.call();
+    const secondResult = await throttled();
 
     expect(secondResult).toEqual(14);
   });
@@ -119,39 +124,47 @@ describe('throttleAsyncFunction', () => {
   it('should throw if latest successful wrapped function call was before expiration time', async () => {
     const cacheRefreshPeriodMs = 50;
     const cacheExpiryMs = 100;
-    const asyncFunction = jest.fn()
+    const asyncFunction = jest
+      .fn()
       .mockResolvedValueOnce(14)
       .mockRejectedValueOnce(new Error('pesky persistent error'));
-    const throttled = throttleAsyncFunction({ asyncFunction, cacheRefreshPeriodMs, cacheExpiryMs });
+    const throttled = throttleAsyncFunction(asyncFunction, { cacheRefreshPeriodMs, cacheExpiryMs });
 
-    await throttled.call();
+    await throttled();
     await delay(cacheExpiryMs + 10);
 
-    await expect(throttled.call()).rejects.toThrowError('pesky persistent error');
+    await expect(throttled()).rejects.toThrowError('pesky persistent error');
   });
 
   describe('retryCount option', () => {
     it('should retry if wrapped function fails for the first call for given args', async () => {
-      const asyncFunction = jest.fn()
+      const asyncFunction = jest
+        .fn()
         .mockRejectedValueOnce(new Error('transient error'))
         .mockResolvedValueOnce(14);
-      const throttled = throttleAsyncFunction({ asyncFunction, retryCount: 1 });
+      const throttled = throttleAsyncFunction(asyncFunction, { retryCount: 1 });
 
-      const result = await throttled.call();
+      const result = await throttled();
 
       expect(result).toEqual(14);
     });
 
-    it('should not retry failed wrapped function if there is valid cached result', async () => {
+    // TODO: not sure if this is actually needed or not
+    it.skip('should not retry failed wrapped function if there is valid cached result', async () => {
       const cacheRefreshPeriodMs = 100;
-      const asyncFunction = jest.fn()
+      const asyncFunction = jest
+        .fn()
         .mockResolvedValueOnce(14)
         .mockRejectedValueOnce(new Error('transient error'));
-      const throttled = throttleAsyncFunction({ asyncFunction, cacheRefreshPeriodMs, retryCount: 1 });
+      const throttled = throttleAsyncFunction(asyncFunction, {
+        cacheRefreshPeriodMs,
+        retryCount: 1
+      });
 
-      await throttled.call();
+      await throttled();
       await delay(cacheRefreshPeriodMs + 10);
-      const result = await throttled.call();
+      const result = await throttled();
+      await delay(5);
 
       expect(result).toEqual(14);
       expect(asyncFunction).toHaveBeenCalledTimes(2);
@@ -160,20 +173,20 @@ describe('throttleAsyncFunction', () => {
     it('should retry if wrapped function fails while cache is expired', async () => {
       const cacheRefreshPeriodMs = 50;
       const cacheExpiryMs = 100;
-      const asyncFunction = jest.fn()
+      const asyncFunction = jest
+        .fn()
         .mockResolvedValueOnce(14)
         .mockRejectedValueOnce(new Error('pesky persistent error'))
         .mockResolvedValueOnce(16);
-      const throttled = throttleAsyncFunction({
-        asyncFunction,
+      const throttled = throttleAsyncFunction(asyncFunction, {
         cacheRefreshPeriodMs,
         cacheExpiryMs,
         retryCount: 1
       });
 
-      await throttled.call();
+      await throttled();
       await delay(cacheExpiryMs + 10);
-      const result = await throttled.call();
+      const result = await throttled();
 
       expect(result).toEqual(16);
       expect(asyncFunction).toHaveBeenCalledTimes(3);
@@ -181,10 +194,23 @@ describe('throttleAsyncFunction', () => {
 
     it('should throw error if retry count is exhausted and request still fails', async () => {
       const asyncFunction = jest.fn().mockRejectedValue(new Error('pesky persistent error'));
-      const throttled = throttleAsyncFunction({ asyncFunction, retryCount: 3 });
+      const throttled = throttleAsyncFunction(asyncFunction, { retryCount: 3 });
 
-      await expect(throttled.call()).rejects.toThrowError('pesky persistent error');
+      await expect(throttled()).rejects.toThrowError('pesky persistent error');
       expect(asyncFunction).toHaveBeenCalledTimes(4);
+    });
+  });
+
+  describe('clearCache', () => {
+    it('should call wrapped function again after clearCache was called', async () => {
+      const asyncFunction = jest.fn();
+      const throttled = throttleAsyncFunction(asyncFunction);
+
+      await throttled();
+      throttled.clearCache();
+      await throttled();
+
+      expect(asyncFunction).toBeCalledTimes(2);
     });
   });
 });

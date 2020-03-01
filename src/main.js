@@ -1,11 +1,9 @@
 'use strict';
 
-module.exports = ({
+module.exports = (
   asyncFunction,
-  cacheRefreshPeriodMs = 60 * 1000,
-  cacheExpiryMs = 10 * 60 * 1000,
-  retryCount = 0
-}) => {
+  { cacheRefreshPeriodMs = 60 * 1000, cacheExpiryMs = 5 * 60 * 1000, retryCount = 0 } = {}
+) => {
   let promiseCache = {};
   let resultCache = {};
 
@@ -32,20 +30,19 @@ module.exports = ({
     promiseCache[cacheKey] = { promise, timestamp: Date.now() };
   };
 
-  return {
-    async call(...args) {
-      const cacheKey = JSON.stringify(args);
+  const throttled = async (...args) => {
+    const cacheKey = JSON.stringify(args);
 
-      refreshPromiseIfExpired(cacheKey, args);
+    refreshPromiseIfExpired(cacheKey, args);
 
-      if (hasValidCachedResultFor(cacheKey)) return resultCache[cacheKey].result;
-      return promiseCache[cacheKey].promise;
-    },
-    clearCache() {
-      promiseCache = {};
-      resultCache = {};
-    }
+    if (hasValidCachedResultFor(cacheKey)) return resultCache[cacheKey].result;
+    return promiseCache[cacheKey].promise;
   };
+  throttled.clearCache = () => {
+    promiseCache = {};
+    resultCache = {};
+  };
+  return throttled;
 };
 
 const retryFunction = async (operation, retryCount) => {
