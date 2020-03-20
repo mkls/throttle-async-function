@@ -15,7 +15,7 @@ The package exposes a factory function which creates a wrapped version of the pa
 function:
 
 ```js
-const throttleAsyncFunction = require('throttleAsyncFunction');
+const throttleAsyncFunction = require('throttle-async-function');
 
 const throttled = throttleAsyncFunction(
   async userId => await fetchUserInfo(userId),
