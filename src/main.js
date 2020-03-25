@@ -1,6 +1,7 @@
 'use strict';
 
 const LRU = require('lru-cache');
+const crypto = require('crypto');
 
 module.exports = (
   asyncFunction,
@@ -32,7 +33,10 @@ module.exports = (
   };
 
   const throttled = async (...args) => {
-    const cacheKey = JSON.stringify(args);
+    const cacheKey = crypto
+      .createHash('md5')
+      .update(JSON.stringify(args))
+      .digest('hex');
 
     if (!promiseCache.has(cacheKey)) {
       promiseCache.set(cacheKey, callWithRetry(cacheKey, args, retryCount));

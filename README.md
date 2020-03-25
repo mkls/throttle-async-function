@@ -2,9 +2,9 @@
 
 Cache the results of async function calls.
 
-You can wrap your async function with this package and calls to the
-wrapped version only get excecuted if there is no recent result for the same arguments in
-cache, thus it thottles the execution of you function.
+You can wrap your async function with this package and cache it's recent results.
+Calls to the wrapped version only get executed if there is no result for the same arguments
+in cache. With this it throttles the execution of you function.
 
 It could have been a good idea to include caching or memoizing in the name, since what
 this package does is related to those concepts as well.
@@ -63,8 +63,8 @@ no more than 5 minutes old.
 
 ### Resetting cache
 
-In integration tests you probably don't want to keep the cache between test cases,
-otherwise it would introduce add hidden coupling between the cases.
+In integration tests, you probably don't want to keep the cache between test cases,
+since it would add hidden coupling between the test cases.
 
 For this reaseon there is a `clearCache` method on the throttled function which resets its
 state. You can call this in a `beforeEach` of your tests.
