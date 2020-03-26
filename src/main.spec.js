@@ -43,6 +43,17 @@ describe('throttleAsyncFunction', () => {
     expect(asyncFunction).toHaveBeenCalledTimes(2);
   });
 
+  it('should return cached result when parameters of call are deep equal', async () => {
+    const asyncFunction = jest.fn().mockResolvedValue(2);
+    const throttled = throttleAsyncFunction(asyncFunction);
+
+    const result1 = await throttled({ a: 1, b: 2});
+    const result2 = await throttled({ b: 2, a: 1 });
+
+    expect([result1, result2]).toEqual([2, 2]);
+    expect(asyncFunction).toHaveBeenCalledTimes(1);
+  });
+
   it('should execute wrapped function again after refresh period', async () => {
     const cacheRefreshPeriod = 100;
     const asyncFunction = jest.fn().mockResolvedValue(3);

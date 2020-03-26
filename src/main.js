@@ -2,6 +2,7 @@
 
 const LRU = require('lru-cache');
 const crypto = require('crypto');
+const stringify = require('json-stable-stringify');
 
 module.exports = (
   asyncFunction,
@@ -35,7 +36,7 @@ module.exports = (
   const throttled = async (...args) => {
     const cacheKey = crypto
       .createHash('md5')
-      .update(JSON.stringify(args))
+      .update(stringify(args))
       .digest('hex');
 
     if (!promiseCache.has(cacheKey)) {

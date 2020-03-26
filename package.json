@@ -1,6 +1,6 @@
 {
   "name": "throttle-async-function",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Cache results of async functions for further calls",
   "main": "src/main.js",
   "scripts": {
@@ -28,6 +28,7 @@
     "jest": "^25.1.0"
   },
   "dependencies": {
+    "json-stable-stringify": "^1.0.1",
     "lru-cache": "^5.1.1"
   }
 }
