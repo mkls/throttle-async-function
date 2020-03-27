@@ -59,7 +59,7 @@ no more than 5 minutes old.
   When the wrapped function returns with a rejected promise or throws an error, it will
   be retried this many times before propagating the error to the caller.
   Unless, there is a valid value for this value in cache, in which case it does not
-  bother with retries.
+  bother with retries. Waits 200ms between retries.
 
 ### Resetting cache
 

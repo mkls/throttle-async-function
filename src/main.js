@@ -3,6 +3,7 @@
 const LRU = require('lru-cache');
 const crypto = require('crypto');
 const stringify = require('json-stable-stringify');
+const wait = amount => new Promise(resolve => setTimeout(resolve, amount));
 
 module.exports = (
   asyncFunction,
@@ -26,6 +27,7 @@ module.exports = (
         return resultCache.get(cacheKey);
       }
       if (retryCount > 0) {
+        await wait(200);
         return callWithRetry(cacheKey, args, retryCount - 1);
       } else {
         throw error;
