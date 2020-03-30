@@ -61,6 +61,10 @@ no more than 5 minutes old.
   Unless, there is a valid value for this value in cache, in which case it does not
   bother with retries. Waits 200ms between retries.
 
+- `retryDelay`: default is 200ms
+
+  The amount of time to wait before executing the next retry
+
 ### Resetting cache
 
 In integration tests, you probably don't want to keep the cache between test cases,

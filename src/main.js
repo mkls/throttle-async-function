@@ -11,7 +11,8 @@ module.exports = (
     cacheRefreshPeriod = 60 * 1000,
     cacheExpiry = 5 * 60 * 1000,
     maxCachedItems = Infinity,
-    retryCount = 0
+    retryCount = 0,
+    retryDelay = 200
   } = {}
 ) => {
   const promiseCache = new LRU({ max: maxCachedItems, maxAge: cacheRefreshPeriod });
@@ -27,7 +28,7 @@ module.exports = (
         return resultCache.get(cacheKey);
       }
       if (retryCount > 0) {
-        await wait(200);
+        await wait(retryDelay);
         return callWithRetry(cacheKey, args, retryCount - 1);
       } else {
         throw error;
