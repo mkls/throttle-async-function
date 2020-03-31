@@ -9,14 +9,14 @@ module.exports = (
   asyncFunction,
   {
     cacheRefreshPeriod = 60 * 1000,
-    cacheExpiry = 5 * 60 * 1000,
+    cacheMaxAge = 5 * 60 * 1000,
     maxCachedItems = Infinity,
     retryCount = 0,
     retryDelay = 200
   } = {}
 ) => {
   const promiseCache = new LRU({ max: maxCachedItems, maxAge: cacheRefreshPeriod });
-  const resultCache = new LRU({ max: maxCachedItems, maxAge: cacheExpiry });
+  const resultCache = new LRU({ max: maxCachedItems, maxAge: cacheMaxAge });
 
   const callWithRetry = async (cacheKey, args, retryCount) => {
     try {
@@ -28,7 +28,7 @@ module.exports = (
         return resultCache.get(cacheKey);
       }
       if (retryCount > 0) {
-        await wait(retryDelay);
+        retryDelay !== 0 ? await wait(retryDelay) : null;
         return callWithRetry(cacheKey, args, retryCount - 1);
       } else {
         throw error;

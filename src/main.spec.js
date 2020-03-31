@@ -149,15 +149,15 @@ describe('throttleAsyncFunction', () => {
 
   it('should throw if latest successful wrapped function call was before expiration time', async () => {
     const cacheRefreshPeriod = 50;
-    const cacheExpiry = 100;
+    const cacheMaxAge = 100;
     const asyncFunction = jest
       .fn()
       .mockResolvedValueOnce(14)
       .mockRejectedValueOnce(new Error('pesky persistent error'));
-    const throttled = throttleAsyncFunction(asyncFunction, { cacheRefreshPeriod, cacheExpiry });
+    const throttled = throttleAsyncFunction(asyncFunction, { cacheRefreshPeriod, cacheMaxAge });
 
     await throttled();
-    await delay(cacheExpiry + 10);
+    await delay(cacheMaxAge + 10);
 
     await expect(throttled()).rejects.toThrowError('pesky persistent error');
   });
@@ -200,7 +200,7 @@ describe('throttleAsyncFunction', () => {
 
     it('should retry if wrapped function fails while cache is expired', async () => {
       const cacheRefreshPeriod = 50;
-      const cacheExpiry = 100;
+      const cacheMaxAge = 100;
       const asyncFunction = jest
         .fn()
         .mockResolvedValueOnce(14)
@@ -208,12 +208,12 @@ describe('throttleAsyncFunction', () => {
         .mockResolvedValueOnce(16);
       const throttled = throttleAsyncFunction(asyncFunction, {
         cacheRefreshPeriod,
-        cacheExpiry,
+        cacheMaxAge,
         retryCount: 1
       });
 
       await throttled();
-      await delay(cacheExpiry + 10);
+      await delay(cacheMaxAge + 10);
       const result = await throttled();
 
       expect(result).toEqual(16);
