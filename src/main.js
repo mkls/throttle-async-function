@@ -24,8 +24,9 @@ module.exports = (
       resultCache.set(cacheKey, result);
       return result;
     } catch (error) {
+      const cachedResult = resultCache.get(cacheKey);
       if (resultCache.has(cacheKey)) {
-        return resultCache.get(cacheKey);
+        return cachedResult;
       }
       if (retryCount > 0) {
         retryDelay !== 0 ? await wait(retryDelay) : null;
@@ -45,8 +46,9 @@ module.exports = (
     if (!promiseCache.has(cacheKey)) {
       promiseCache.set(cacheKey, callWithRetry(cacheKey, args, retryCount));
     }
+    const cachedResult = resultCache.get(cacheKey);
     if (resultCache.has(cacheKey)) {
-      return resultCache.get(cacheKey);
+      return cachedResult;
     }
     return promiseCache.get(cacheKey);
   };
