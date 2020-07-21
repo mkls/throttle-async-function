@@ -43,6 +43,7 @@ module.exports = (
       .update(stringify(args))
       .digest('hex');
 
+    const cachedPromise = promiseCache.get(cacheKey);
     if (!promiseCache.has(cacheKey)) {
       promiseCache.set(cacheKey, callWithRetry(cacheKey, args, retryCount));
     }
@@ -50,7 +51,7 @@ module.exports = (
     if (resultCache.has(cacheKey)) {
       return cachedResult;
     }
-    return promiseCache.get(cacheKey);
+    return cachedPromise;
   };
   throttled.clearCache = () => {
     promiseCache.reset();
