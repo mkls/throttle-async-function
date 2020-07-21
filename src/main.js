@@ -43,9 +43,10 @@ module.exports = (
       .update(stringify(args))
       .digest('hex');
 
-    const cachedPromise = promiseCache.get(cacheKey);
+    let cachedPromise = promiseCache.get(cacheKey);
     if (!promiseCache.has(cacheKey)) {
-      promiseCache.set(cacheKey, callWithRetry(cacheKey, args, retryCount));
+      cachedPromise = callWithRetry(cacheKey, args, retryCount);
+      promiseCache.set(cacheKey, cachedPromise);
     }
     const cachedResult = resultCache.get(cacheKey);
     if (resultCache.has(cacheKey)) {
