@@ -2,6 +2,7 @@
 
 const throttleAsyncFunction = require('./main');
 const delay = require('delay');
+const fakeTimers = require('@sinonjs/fake-timers');
 
 describe('throttleAsyncFunction', () => {
   it('should return the result of the function for the first execution', async () => {
@@ -47,7 +48,7 @@ describe('throttleAsyncFunction', () => {
     const asyncFunction = jest.fn().mockResolvedValue(2);
     const throttled = throttleAsyncFunction(asyncFunction);
 
-    const result1 = await throttled({ a: 1, b: 2});
+    const result1 = await throttled({ a: 1, b: 2 });
     const result2 = await throttled({ b: 2, a: 1 });
 
     expect([result1, result2]).toEqual([2, 2]);
@@ -110,13 +111,10 @@ describe('throttleAsyncFunction', () => {
 
   it('should not throw error when wrapped function fail and cached value is falsy', async () => {
     const cacheRefreshPeriod = 100;
-    const asyncFunction = jest
-      .fn()
-      .mockResolvedValueOnce(null)
-      .mockRejectedValue(new Error('ops'));
+    const asyncFunction = jest.fn().mockResolvedValueOnce(null).mockRejectedValue(new Error('ops'));
     const throttled = throttleAsyncFunction(asyncFunction, { cacheRefreshPeriod });
 
-    await throttled()
+    await throttled();
     await delay(cacheRefreshPeriod + 5);
     const resultAfterError = await throttled();
 
@@ -240,6 +238,34 @@ describe('throttleAsyncFunction', () => {
       await throttled(1);
 
       expect(asyncFunction).toBeCalledTimes(4);
+    });
+  });
+
+  describe('hitRateReport', () => {
+    it('should call hitRateReportHandler every hitRateReportPeriod ms if set with statistics', async () => {
+      const clock = fakeTimers.install();
+      const hitRateReportPeriod = 400;
+      const hitRateReportHandler = jest.fn();
+      const throttled = throttleAsyncFunction(() => 1, {
+        hitRateReportPeriod,
+        hitRateReportHandler
+      });
+
+      await throttled(1);
+      await throttled(1);
+      await throttled(2);
+      clock.tick(hitRateReportPeriod + 1);
+
+      expect(hitRateReportHandler.mock.calls).toEqual([[{ totalCalls: 3, gotThroughCalls: 2 }]]);
+
+      await throttled(1);
+      clock.tick(hitRateReportPeriod + 1);
+
+      expect(hitRateReportHandler.mock.calls).toEqual([
+        [{ totalCalls: 3, gotThroughCalls: 2 }],
+        [{ totalCalls: 1, gotThroughCalls: 0 }]
+      ]);
+      clock.uninstall();
     });
   });
 

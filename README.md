@@ -61,9 +61,20 @@ no more than 5 minutes old.
   Unless, there is a valid value for this value in cache, in which case it does not
   bother with retries. Waits 200ms between retries.
 
-- `retryDelay`: default is 200ms
+- `retryDelay`: in milliseconds, default: 200 millisecond
 
   The amount of time to wait before executing the next retry
+
+- `hitRateReportPeriod`: in milliseconds, default is `null`, meananing no hitRateReportHandler
+
+  Sets how often the `hitRateReportHandler` callback should be called.
+  With the default `null` value the callback is never called.
+
+- `hitRateReportHandler`
+
+  Called periodically with the count number of total calls made to the wrapper (`totalCount`)
+  and the number of calls actually sent through to the wrapped function (`gotThroughCalls`),
+  since the last report.
 
 ### Resetting cache
 

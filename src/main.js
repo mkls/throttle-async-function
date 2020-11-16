@@ -3,6 +3,7 @@
 const LRU = require('lru-cache');
 const crypto = require('crypto');
 const stringify = require('json-stable-stringify');
+const { report } = require('process');
 const wait = amount => new Promise(resolve => setTimeout(resolve, amount));
 
 module.exports = (
@@ -12,9 +13,21 @@ module.exports = (
     cacheMaxAge = 5 * 60 * 1000,
     maxCachedItems = Infinity,
     retryCount = 0,
-    retryDelay = 200
+    retryDelay = 200,
+    hitRateReportPeriod = null,
+    hitRateReportHandler = ({ totalCalls, gotThroughCalls }) => {}
   } = {}
 ) => {
+  let hitRateStatistics = { totalCalls: 0, gotThroughCalls: 0 };
+  const reportHitRate = () => {
+    hitRateReportHandler({ ...hitRateStatistics });
+    hitRateStatistics = { totalCalls: 0, gotThroughCalls: 0 };
+    setTimeout(reportHitRate, hitRateReportPeriod);
+  };
+  if (hitRateReportPeriod) {
+    setTimeout(reportHitRate, hitRateReportPeriod);
+  }
+
   const promiseCache = new LRU({ max: maxCachedItems, maxAge: cacheRefreshPeriod });
   const resultCache = new LRU({ max: maxCachedItems, maxAge: cacheMaxAge });
 
@@ -38,21 +51,17 @@ module.exports = (
   };
 
   const throttled = async (...args) => {
-    const cacheKey = crypto
-      .createHash('md5')
-      .update(stringify(args))
-      .digest('hex');
+    hitRateStatistics.totalCalls += 1;
+    const cacheKey = crypto.createHash('md5').update(stringify(args)).digest('hex');
 
     let cachedPromise = promiseCache.get(cacheKey);
     if (!promiseCache.has(cacheKey)) {
+      hitRateStatistics.gotThroughCalls += 1;
       cachedPromise = callWithRetry(cacheKey, args, retryCount);
       promiseCache.set(cacheKey, cachedPromise);
     }
     const cachedResult = resultCache.get(cacheKey);
-    if (resultCache.has(cacheKey)) {
-      return cachedResult;
-    }
-    return cachedPromise;
+    return resultCache.has(cacheKey) ? cachedResult : cachedPromise;
   };
   throttled.clearCache = () => {
     promiseCache.reset();
