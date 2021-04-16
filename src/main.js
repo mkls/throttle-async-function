@@ -55,7 +55,7 @@ module.exports = (
     const cacheKey = crypto.createHash('md5').update(stringify(args)).digest('hex');
 
     let cachedPromise = promiseCache.get(cacheKey);
-    if (!promiseCache.has(cacheKey)) {
+    if (!promiseCache.has(cacheKey) || await isRejected(cachedPromise)) {
       hitRateStatistics.gotThroughCalls += 1;
       cachedPromise = callWithRetry(cacheKey, args, retryCount);
       promiseCache.set(cacheKey, cachedPromise);
@@ -69,3 +69,8 @@ module.exports = (
   };
   return throttled;
 };
+
+const isRejected = async promise => new Promise(resolve => {
+  promise.catch(() => resolve(true));
+  setTimeout(() => resolve(false), 0);
+});

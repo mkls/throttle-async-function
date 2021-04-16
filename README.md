@@ -36,7 +36,10 @@ await throttled(3);   // calls wrapped function again, no cache for this argumen
 
 - `cacheRefreshPeriod`: in milliseconds, default: 60000 millisecond (1 minute)
 
-  The wrapped function will be called at most after this much wait with the same parameter.
+  The wrapped function will be called after this much wait for the same parameters, to refresh
+  the cache.
+  Since we don't want to cache failed exections, the wrapped function will be called before this
+  wait time if the previous execution failed.
   Similar to the `wait` paramters of lodash\`s `throttle` function.
 
 - `cacheMaxAge`: in milliseconds, default is 300000 millisecond (5 minutes)

@@ -160,6 +160,22 @@ describe('throttleAsyncFunction', () => {
     await expect(throttled()).rejects.toThrowError('pesky persistent error');
   });
 
+  it('should make call again intead of serving cached promise if cached promise is a rejection', async () => {
+    const cacheRefreshPeriod = 100;
+    const asyncFunction = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('pesky error'))
+      .mockResolvedValueOnce(14);
+    const throttled = throttleAsyncFunction(asyncFunction, { cacheRefreshPeriod });
+
+    await expect(throttled()).rejects.toThrowError('pesky error')
+    await delay(1);
+    const secondCallResult = await throttled();
+
+    expect(secondCallResult).toEqual(14);
+    expect(asyncFunction).toHaveBeenCalledTimes(2);
+  });
+
   describe('retryCount option', () => {
     it('should retry if wrapped function fails for the first call for given args', async () => {
       const asyncFunction = jest
@@ -251,14 +267,14 @@ describe('throttleAsyncFunction', () => {
         hitRateReportHandler
       });
 
-      await throttled(1);
-      await throttled(1);
-      await throttled(2);
+      throttled(1);
+      throttled(1);
+      throttled(2);
       clock.tick(hitRateReportPeriod + 1);
 
       expect(hitRateReportHandler.mock.calls).toEqual([[{ totalCalls: 3, gotThroughCalls: 2 }]]);
 
-      await throttled(1);
+      throttled(1);
       clock.tick(hitRateReportPeriod + 1);
 
       expect(hitRateReportHandler.mock.calls).toEqual([
