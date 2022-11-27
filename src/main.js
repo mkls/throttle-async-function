@@ -3,7 +3,6 @@
 const LRU = require('lru-cache');
 const crypto = require('crypto');
 const stringify = require('json-stable-stringify');
-const { report } = require('process');
 const wait = amount => new Promise(resolve => setTimeout(resolve, amount));
 
 module.exports = (
@@ -50,9 +49,11 @@ module.exports = (
     }
   };
 
+  const getCacheKey = args => crypto.createHash('md5').update(stringify(args)).digest('hex');
+
   const throttled = async (...args) => {
     hitRateStatistics.totalCalls += 1;
-    const cacheKey = crypto.createHash('md5').update(stringify(args)).digest('hex');
+    const cacheKey = getCacheKey(args);
 
     let cachedPromise = promiseCache.get(cacheKey);
     if (!promiseCache.has(cacheKey) || await isRejected(cachedPromise)) {
@@ -63,6 +64,14 @@ module.exports = (
     const cachedResult = resultCache.get(cacheKey);
     return resultCache.has(cacheKey) ? cachedResult : cachedPromise;
   };
+
+  throttled.callWithoutCache = (...args) => {
+    const cacheKey = getCacheKey(args);
+    resultCache.del(cacheKey);
+    promiseCache.del(cacheKey);
+    return throttled(...args);
+  }
+
   throttled.clearCache = () => {
     promiseCache.reset();
     resultCache.reset();

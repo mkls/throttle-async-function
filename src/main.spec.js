@@ -168,7 +168,7 @@ describe('throttleAsyncFunction', () => {
       .mockResolvedValueOnce(14);
     const throttled = throttleAsyncFunction(asyncFunction, { cacheRefreshPeriod });
 
-    await expect(throttled()).rejects.toThrowError('pesky error')
+    await expect(throttled()).rejects.toThrowError('pesky error');
     await delay(1);
     const secondCallResult = await throttled();
 
@@ -282,6 +282,25 @@ describe('throttleAsyncFunction', () => {
         [{ totalCalls: 1, gotThroughCalls: 0 }]
       ]);
       clock.uninstall();
+    });
+  });
+
+  describe('callWithoutCache', () => {
+    it('should clean cache for given value before calling wrapped function', async () => {
+      const asyncFunction = jest
+        .fn()
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(2)
+        .mockResolvedValueOnce(3);
+      const throttled = throttleAsyncFunction(asyncFunction);
+
+      const result1 = await throttled(1);
+      const result2 = await throttled(4);
+      const result3 = await throttled.callWithoutCache(4);
+      const result4 = await throttled(1);
+
+      expect([result1, result2, result3, result4]).toEqual([1, 2, 3, 1]);
+      expect(asyncFunction).toHaveBeenCalledTimes(3);
     });
   });
 

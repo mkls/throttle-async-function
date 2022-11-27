@@ -79,6 +79,19 @@ no more than 5 minutes old.
   and the number of calls actually sent through to the wrapped function (`gotThroughCalls`),
   since the last report.
 
+### Force refresh cache for a given value
+
+There are cases when you want to force a cache refresh for a given value, eg after you get a result
+you know for sure is outdated. For this you can use the `callWithoutCache` function decorated
+onto the throttled function:
+
+```js
+const throttled = throttleAsyncFunction(async id => await getUser(id));
+
+await throttled(12);
+await throttled.callWithoutCache(12);    // calls wrapped function again, clears cache for only this value
+```
+
 ### Resetting cache
 
 In integration tests, you probably don't want to keep the cache between test cases,
